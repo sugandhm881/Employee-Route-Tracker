@@ -950,7 +950,7 @@ def generate_map_html(start_date_str, end_date_str, employee_name):
                 font-size: 12px; 
                 font-family: Arial, sans-serif; 
                 z-index: 1000;">
-        &copy; 2025 - Sugandh Mishra
+        &copy; 2025 - Sugandh Kuamr Mishra
     </div>
     """
     fmap.get_root().html.add_child(folium.Element(signature_html))
