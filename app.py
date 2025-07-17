@@ -10,7 +10,7 @@ import io
 import math # Import the math module for distance calculations
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 150 * 1024 * 1024  # 50 MB
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB
 
 # Global variable to store DataFrame and detected columns
 # This avoids re-reading the file on every request.
@@ -958,7 +958,7 @@ if __name__ == '__main__':
 
 @app.errorhandler(RequestEntityTooLarge)
 def handle_file_too_large(e):
-    return jsonify({'error': 'File is too large. Maximum allowed size is 150 MB.'}), 413
+    return jsonify({'error': 'File is too large. Maximum allowed size is 50 MB.'}), 413
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
