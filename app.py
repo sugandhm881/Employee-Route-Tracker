@@ -299,6 +299,20 @@ HTML_TEMPLATE = """
         <div id="messageBox" class="message-box mt-8 hidden"></div>
     </div>
 
+            <!-- Footer -->
+        <div class="footer">
+            &copy; 2025 - Sugandh Mishra. All rights reserved.
+        </div>
+
+        <style>
+        .footer {
+    text-align: center; /* Center the text */
+    margin-top: 20px; /* Add some space above the footer */
+    font-size: 0.875rem; /* Small font size */
+    color: #6b7280; /* Gray-500 color */
+}
+        </style>
+
     <style>
     .btn-small {
         padding: 0.5rem 1rem; /* Reduced padding */
@@ -926,24 +940,22 @@ def generate_map_html(start_date_str, end_date_str, employee_name):
     """
     fmap.get_root().html.add_child(folium.Element(marker_type_legend_html))
 
+    # Add the signature to the map
+    signature_html = """
+    <div style="position: fixed; 
+                bottom: 10px; left: 10px; 
+                background-color: rgba(255, 255, 255, 0.8); 
+                padding: 5px 10px; 
+                border-radius: 5px; 
+                font-size: 12px; 
+                font-family: Arial, sans-serif; 
+                z-index: 1000;">
+        &copy; 2025 - Sugandh Mishra
+    </div>
+    """
+    fmap.get_root().html.add_child(folium.Element(signature_html))
 
-    # Removed the Employee Color Legend (Routes) section as requested.
-    # employee_color_legend_html = """
-    # <div class="employee-legend">
-    # <h4 style="margin-top:0; margin-bottom:12px; font-weight:bold; color:#333;">Employee Legend (Routes)</h4>
-    # """
-    # for emp, color in employee_colors.items():
-    #     total_dist_str = f" (Total Route: {employee_total_distances.get(emp, 0):.2f} km)"
-    #     employee_color_legend_html += f"""
-    #     <div class="employee-legend-item">
-    #         <div class="employee-legend-color-box" style="background-color: {color};"></div>
-    #         <span>{emp}{total_dist_str}</span>
-    #     </div>
-    #     """
-    # employee_color_legend_html += "</div>"
-    # fmap.get_root().html.add_child(folium.Element(employee_color_legend_html))
-
-    return fmap._repr_html_(), None # Return HTML and no error
+    return fmap._repr_html_(), None  # Return the map HTML and no error
 
 
 @app.route('/get_map', methods=['POST'])
@@ -1004,4 +1016,4 @@ if __name__ == '__main__':
 
     
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(host='0.0.0.0', port=5000)
