@@ -10,7 +10,9 @@ import io
 import math # Import the math module for distance calculations
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB
+import os
+
+app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_CONTENT_LENGTH', 50)) * 1024 * 1024  # Default to 50 MB
 
 # Global variable to store DataFrame and detected columns
 # This avoids re-reading the file on every request.
@@ -38,7 +40,7 @@ HTML_TEMPLATE = """
             color: #334155; /* Darker text for better contrast */
         }
         .map-container {
-            height: 70vh; /* Responsive height */
+            height: 85vh; /* Increased height for a larger map view */
             width: 100%;
             border-radius: 1.25rem; /* Even more rounded corners */
             overflow: hidden; /* Hide overflow for rounded corners */
@@ -260,40 +262,77 @@ HTML_TEMPLATE = """
             </button>
         </div>
 
-        <hr class="my-10 border-gray-200">
+        <hr class="my-6 border-gray-200">
 
-        <div class="grid grid-cols-1 md:grid-cols-7 gap-8 mb-10 items-end">
-            <div class="flex flex-col md:col-span-1">
-                <label for="startDateFilter" class="text-gray-700 font-semibold mb-3 text-xl">Start Date:</label>
-                <input type="date" id="startDateFilter" class="input-field" disabled>
+            <div class="grid grid-cols-1 md:grid-cols-7 gap-8 mb-10 items-end">
+                <div class="flex flex-col md:col-span-2">
+                    <label for="startDateFilter" class="text-gray-700 font-semibold mb-3 text-l">Start Date:</label>
+                    <input type="date" id="startDateFilter" class="start-date-field w-full">
+                </div>
+                <div class="flex flex-col md:col-span-2">
+                    <label for="endDateFilter" class="text-gray-700 font-semibold mb-3 text-l">End Date:</label>
+                    <input type="date" id="endDateFilter" class="end-date-field w-full">
+                </div>
             </div>
-            <div class="flex flex-col md:col-span-1">
-                <label for="endDateFilter" class="text-gray-700 font-semibold mb-3 text-xl">End Date:</label>
-                <input type="date" id="endDateFilter" class="input-field" disabled>
-            </div>
-            <div class="flex flex-col md:col-span-2">
-                <label for="employeeFilter" class="text-gray-700 font-semibold mb-3 text-xl">Select Employee:</label>
-                <select id="employeeFilter" class="input-field" disabled>
-                    <option value="">All Employees</option>
-                </select>
-            </div>
-            <button id="loadMapBtn" class="btn-base btn-blue md:col-span-1">
-                <i class="fa fa-refresh"></i> Load Map
-                <div id="loadingSpinnerMap" class="loading-spinner ml-3"></div>
-            </button>
-            <button id="downloadMapBtn" class="btn-base btn-purple md:col-span-1" disabled>
-                <i class="fa fa-download"></i> Download Map
-            </button>
-            <button id="resetFiltersBtn" class="btn-base btn-red md:col-span-1" disabled>
-                <i class="fa fa-undo"></i> Reset Filters
-            </button>
-        </div>
+                <div class="flex flex-col md:col-span-2 mb-6"> <!-- Added mb-6 for spacing -->
+                    <label for="employeeFilter" class="text-gray-700 font-semibold mb-3 text-l">Select Employee:</label>
+                    <select id="employeeFilter" class="input-field" disabled>
+                        <option value="">All Employees</option>
+                    </select>
+                </div>
+                <div class="flex justify-center gap-4">
+                    <button id="loadMapBtn" class="btn-base btn-blue btn-small">
+                        <i class="fa fa-refresh"></i> Load Map
+                        <div id="loadingSpinnerMap" class="loading-spinner ml-3"></div>
+                    </button>
+                    <button id="downloadMapBtn" class="btn-base btn-purple btn-small" disabled>
+                        <i class="fa fa-download"></i> Download Map
+                    </button>
+                    <button id="resetFiltersBtn" class="btn-base btn-red btn-small" disabled>
+                        <i class="fa fa-undo"></i> Reset Filters
+                    </button>
+                </div>
 
         <div id="mapContainer" class="map-container">
             <p class="text-center text-gray-500 text-xl font-medium">Please upload your data file to get started.</p>
         </div>
         <div id="messageBox" class="message-box mt-8 hidden"></div>
     </div>
+
+    <style>
+    .btn-small {
+        padding: 0.5rem 1rem; /* Reduced padding */
+        font-size: 0.75rem; /* Smaller font size */
+        border-radius: 0.75rem; /* Slightly less rounded */
+        gap: 0.5rem; /* Reduced gap between icon and text */
+    }
+
+    .start-date-field {
+        padding: 0.75rem 1.25rem; /* Adjusted padding for Start Date */
+        font-size: 0.875rem; /* Smaller font size */
+        border-radius: 0.5rem; /* Slightly rounded corners */
+        border: 1px solid #cbd5e1; /* Subtle border */
+        background-color: #ffffff; /* White background */
+        color: #475569; /* Slightly darker text */
+    }
+
+    .end-date-field {
+        padding: 0.85rem 1.5rem; /* Adjusted padding for End Date */
+        font-size: 1rem; /* Slightly larger font size */
+        border-radius: 0.75rem; /* More rounded corners */
+        border: 1px solid #cbd5e1; /* Subtle border */
+        background-color: #f9fafb; /* Light gray background */
+        color: #334155; /* Darker text */
+    }
+
+    .start-date-field:focus,
+    .end-date-field:focus {
+        border-color: #3b82f6; /* Blue border on focus */
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); /* Focus ring */
+        outline: none;
+    }
+
+</style>
 
     <script>
         const fileUpload = document.getElementById('fileUpload');
@@ -701,11 +740,16 @@ def generate_map_html(start_date_str, end_date_str, employee_name):
         else:
             return None, 'Employee Name column not found for employee filtering.'
 
-
     if filtered_data.empty:
         return None, 'No data found for the selected filters.'
 
-    # Create a map centered around the average of filtered data or India
+    # Calculate bounds for zooming
+    min_lat = filtered_data[global_columns['punch_lat_col']].min()
+    max_lat = filtered_data[global_columns['punch_lat_col']].max()
+    min_lon = filtered_data[global_columns['punch_lon_col']].min()
+    max_lon = filtered_data[global_columns['punch_lon_col']].max()
+
+    # Center the map around the filtered data
     avg_lat = filtered_data[global_columns['punch_lat_col']].mean() if not filtered_data.empty else 20.5937
     avg_lon = filtered_data[global_columns['punch_lon_col']].mean() if not filtered_data.empty else 78.9629
     
@@ -714,6 +758,10 @@ def generate_map_html(start_date_str, end_date_str, employee_name):
         zoom_start=5, 
         tiles='CartoDB positron'
     )
+
+    # Adjust the map to fit the bounds if an employee is selected
+    if employee_name and not filtered_data.empty:
+        fmap.fit_bounds([[min_lat, min_lon], [max_lat, max_lon]])
 
     Fullscreen().add_to(fmap)
     MiniMap().add_to(fmap)
@@ -787,7 +835,7 @@ def generate_map_html(start_date_str, end_date_str, employee_name):
                     <strong>Longitude:</strong> {punch_lon_display}
                     """,
                     tooltip=f"Name: {emp} | Punch In: {punch_in_time_display}",
-                    icon=folium.Icon(color=color, icon="sign-in", prefix='fa', icon_size=(20, 20)) # Changed to sign-in icon, and color is now employee-specific
+                    icon=folium.Icon(color="blue", icon="user-clock", prefix='fa', icon_size=(30, 30)) # Changed to clock icon, blue color, size 30x30
                 ).add_to(marker_cluster)
                 added_markers.add(punch_marker_key)
 
@@ -808,7 +856,7 @@ def generate_map_html(start_date_str, end_date_str, employee_name):
                     <strong>Longitude:</strong> {visit_lon_display}
                     """,
                     tooltip=f"Name: {emp} | Visit: {current_visit_time_display} | Outlet: {outlet_name_display}",
-                    icon=folium.Icon(color=color, icon="map-pin", prefix='fa', icon_size=(30, 30)) # Changed to map-pin icon
+                    icon=folium.Icon(color="green", icon="building", prefix='fa', icon_size=(40, 40))  # Green color, building icon, size 40x40
                 ).add_to(marker_cluster)
                 added_markers.add(visit_marker_key)
 
@@ -867,11 +915,11 @@ def generate_map_html(start_date_str, end_date_str, employee_name):
     <div class="marker-legend">
         <h4 style="margin-top:0; margin-bottom:12px; font-weight:bold; color:#333;">Marker Types (Clustered)</h4>
         <div class="marker-legend-item">
-            <div class="marker-legend-icon"><i class="fa fa-sign-in" style="color: darkblue; font-size: 16px;"></i></div> 
+            <div class="marker-legend-icon"><i class="fa fa-clock" style="color: darkblue; font-size: 16px;"></i></div> 
             <span>Punch In Location</span>
         </div>
         <div class="marker-legend-item">
-            <div class="marker-legend-icon"><i class="fa fa-map-pin" style="color: #2ca02c; font-size: 24px;"></i></div> 
+            <div class="marker-legend-icon"><i class="fa fa-briefcase" style="color: #2ca02c; font-size: 24px;"></i></div> 
             <span>Visit Location</span>
         </div>
     </div>
@@ -954,11 +1002,6 @@ if __name__ == '__main__':
     # Please ensure you have a 'Mylo_Logo.png' file in the 'static' directory
     # for the application to display the logo correctly.
 
-    from werkzeug.exceptions import RequestEntityTooLarge
-
-@app.errorhandler(RequestEntityTooLarge)
-def handle_file_too_large(e):
-    return jsonify({'error': 'File is too large. Maximum allowed size is 50 MB.'}), 413
-
+    
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(debug=True, port=5000)
