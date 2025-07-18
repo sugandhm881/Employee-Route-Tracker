@@ -640,6 +640,12 @@ def index():
     """Serves the main HTML page."""
     return render_template_string(HTML_TEMPLATE)
 
+from werkzeug.exceptions import RequestEntityTooLarge
+
+@app.errorhandler(RequestEntityTooLarge)
+def handle_file_too_large(e):
+    return jsonify({'error': 'File is too large. Maximum allowed size is 50 MB.'}), 413
+
 @app.route('/upload_data', methods=['POST'])
 def upload_data():
     """Handles file upload and initial data processing."""
