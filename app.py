@@ -10,7 +10,6 @@ import io
 import math # Import the math module for distance calculations
 
 app = Flask(__name__)
-import os
 
 app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_CONTENT_LENGTH', 50)) * 1024 * 1024  # Default to 50 MB
 
@@ -244,12 +243,10 @@ HTML_TEMPLATE = """
 <body class="bg-gray-100 p-8">
     <div class="max-w-7xl mx-auto bg-white p-10 rounded-3xl shadow-2xl border border-gray-200">
         <div class="flex flex-col items-center mb-10">
-            <img src="/static/Mylo_Logo.png" alt="Mylo Logo" class="w-24 h-auto mb-5 rounded-2xl shadow-xl"> <!-- Larger logo, more rounded -->
-            <h1 class="text-4xl font-extrabold text-gray-900 text-center leading-tight">
+            <img src="/static/Mylo_Logo.png" alt="Mylo Logo" class="w-24 h-auto mb-5 rounded-2xl shadow-xl"> <h1 class="text-4xl font-extrabold text-gray-900 text-center leading-tight">
                 <i class="fa fa-map-marker text-blue-600 mr-5"></i> Employee Route Tracker
             </h1>
-            <p class="text-gray-600 mt-3 text-xl">Visualize employee routes and visit patterns with precision.</p> <!-- Larger, more descriptive tagline -->
-        </div>
+            <p class="text-gray-600 mt-3 text-xl">Visualize employee routes and visit patterns with precision.</p> </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10 items-end">
             <div class="flex flex-col col-span-2">
@@ -267,15 +264,18 @@ HTML_TEMPLATE = """
             <div class="grid grid-cols-1 md:grid-cols-7 gap-8 mb-10 items-end">
                 <div class="flex flex-col md:col-span-2">
                     <label for="startDateFilter" class="text-gray-700 font-semibold mb-3 text-l">Start Date:</label>
-                    <input type="date" id="startDateFilter" class="start-date-field w-full">
+                    <select id="startDateFilter" class="input-field w-full">
+                        <option value="">All Dates</option>
+                    </select>
                 </div>
                 <div class="flex flex-col md:col-span-2">
                     <label for="endDateFilter" class="text-gray-700 font-semibold mb-3 text-l">End Date:</label>
-                    <input type="date" id="endDateFilter" class="end-date-field w-full">
+                    <select id="endDateFilter" class="input-field w-full">
+                        <option value="">All Dates</option>
+                    </select>
                 </div>
             </div>
-                <div class="flex flex-col md:col-span-2 mb-6"> <!-- Added mb-6 for spacing -->
-                    <label for="employeeFilter" class="text-gray-700 font-semibold mb-3 text-l">Select Employee:</label>
+                <div class="flex flex-col md:col-span-2 mb-6"> <label for="employeeFilter" class="text-gray-700 font-semibold mb-3 text-l">Select Employee:</label>
                     <select id="employeeFilter" class="input-field" disabled>
                         <option value="">All Employees</option>
                     </select>
@@ -299,8 +299,7 @@ HTML_TEMPLATE = """
         <div id="messageBox" class="message-box mt-8 hidden"></div>
     </div>
 
-            <!-- Footer -->
-        <div class="footer">
+            <div class="footer">
             &copy; 2025 - Sugandh Mishra. All rights reserved.
         </div>
 
@@ -399,6 +398,36 @@ HTML_TEMPLATE = """
             resetFiltersBtn.disabled = !enabled;
         }
 
+        // Function to populate date dropdowns
+        async function populateDateDropdowns() {
+            try {
+                const response = await fetch('/get_unique_dates');
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to fetch unique dates.');
+                }
+                const dates = await response.json();
+
+                startDateFilter.innerHTML = '<option value="">All Dates</option>';
+                endDateFilter.innerHTML = '<option value="">All Dates</option>';
+
+                dates.forEach(date => {
+                    const startOption = document.createElement('option');
+                    startOption.value = date.value; // YYYY-MM-DD for backend
+                    startOption.textContent = date.text; // DD-MM-YYYY for display
+                    startDateFilter.appendChild(startOption);
+
+                    const endOption = document.createElement('option');
+                    endOption.value = date.value; // YYYY-MM-DD for backend
+                    endOption.textContent = date.text; // DD-MM-YYYY for display
+                    endDateFilter.appendChild(endOption);
+                });
+            } catch (error) {
+                console.error('Error populating date dropdowns:', error);
+                showMessage(`Error loading dates: ${error.message}`, true);
+            }
+        }
+
         // --- File Upload Logic ---
         uploadFileBtn.addEventListener('click', async () => {
             hideMessage();
@@ -442,8 +471,7 @@ HTML_TEMPLATE = """
                     });
                 }
                 
-                // Removed automatic loadMap() call here
-                // loadMap(); 
+                populateDateDropdowns(); // Populate date dropdowns after successful upload
 
             } catch (error) {
                 console.error('Error uploading file:', error);
@@ -464,8 +492,8 @@ HTML_TEMPLATE = """
             resetFiltersBtn.disabled = true;
             mapContainer.innerHTML = '<p class="text-center text-gray-500 text-xl font-medium mt-20">Loading map...</p>';
 
-            const selectedStartDate = startDateFilter.value;
-            const selectedEndDate = endDateFilter.value;
+            const selectedStartDate = startDateFilter.value; // This will be YYYY-MM-DD
+            const selectedEndDate = endDateFilter.value;     // This will be YYYY-MM-DD
             const selectedEmployee = employeeFilter.value;
 
             try {
@@ -487,7 +515,7 @@ HTML_TEMPLATE = """
                 }
 
                 const data = await response.json();
-                
+
                 if (data.map_html) {
                     mapContainer.innerHTML = data.map_html;
                     showMessage("Map loaded successfully!");
@@ -506,7 +534,7 @@ HTML_TEMPLATE = """
             } finally {
                 loadingSpinnerMap.style.display = 'none';
                 loadMapBtn.disabled = false;
-                downloadMapBtn.disabled = false; // Re-enable download after map load
+                downloadMapBtn.disabled = false; // Re-enable download button
                 resetFiltersBtn.disabled = false;
             }
         }
@@ -515,7 +543,6 @@ HTML_TEMPLATE = """
         downloadMapBtn.addEventListener('click', async () => {
             hideMessage();
             showMessage("Preparing map for download...", false, true); // Info message
-
             const selectedStartDate = startDateFilter.value;
             const selectedEndDate = endDateFilter.value;
             const selectedEmployee = employeeFilter.value;
@@ -543,12 +570,11 @@ HTML_TEMPLATE = """
                 const a = document.createElement('a');
                 a.style.display = 'none';
                 a.href = url;
-                a.download = 'employee_route_map.html'; // File name
+                a.download = 'employee_route_map.html'; // Suggested filename
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
-                showMessage("Map downloaded successfully as HTML. Open the file and use your browser's print function to save as PDF.", false, true);
-
+                showMessage("Map downloaded successfully as HTML!", false);
             } catch (error) {
                 console.error('Error downloading map:', error);
                 showMessage(`Error: ${error.message}`, true);
@@ -568,7 +594,6 @@ HTML_TEMPLATE = """
 
         // Initial state: disable filters until file is uploaded
         setFilterControlsEnabled(false);
-
     </script>
 </body>
 </html>
@@ -577,31 +602,25 @@ HTML_TEMPLATE = """
 # Helper functions (from your original script)
 def parse_datetime_columns(data, time_col, date_col=None):
     try:
-        # Convert time column to string to handle mixed types
-        data[time_col] = data[time_col].astype(str)
+        data[time_col] = data[time_col].astype(str) # Convert to string first
         
         if date_col and date_col in data.columns:
-            # Ensure date_col is parsed to datetime if it's not already, then format to YYYY-MM-DD string
-            # This handles cases where date column might be object or datetime64[ns]
-            # Use errors='coerce' to turn unparseable dates into NaT
-            data[date_col] = pd.to_datetime(data[date_col], errors='coerce').dt.strftime('%Y-%m-%d').fillna('')
-            
-            # Combine date and time strings
-            # Only combine if date part is not empty
+            data[date_col] = data[date_col].astype(str) # Ensure date column is string
+
+            # Attempt to parse date_col assuming DD-MM-YYYY or MM-DD-YYYY, preferring DD-MM-YYYY
+            parsed_date = pd.to_datetime(data[date_col], dayfirst=True, infer_datetime_format=True, errors='coerce')
+            data[date_col] = parsed_date.dt.strftime('%d-%m-%Y').fillna('')
+
             combined_datetime_series = data.apply(lambda row: f"{row[date_col]} {row[time_col]}" if row[date_col] else row[time_col], axis=1)
             
-            # Parse the combined string. Strict parsing is default now.
-            parsed_dt = pd.to_datetime(combined_datetime_series, errors='coerce')
-            
-            # Format to DD-MM-YYYY HH:MM:SS
+            # Parse the combined string, again preferring dayfirst
+            parsed_dt = pd.to_datetime(combined_datetime_series, dayfirst=True, infer_datetime_format=True, errors='coerce')
             data[time_col] = parsed_dt.dt.strftime('%d-%m-%Y %H:%M:%S').fillna("Invalid Time")
         else:
-            # Only time column available, parse it assuming HH:MM:SS format
-            parsed_dt = pd.to_datetime(data[time_col], format='%H:%M:%S', errors='coerce')
-            
-            # For display, we only want the time part if no date was provided in original data
-            data[time_col] = parsed_dt.dt.strftime('%H:%M:%M').fillna("Invalid Time") 
-
+            # If no separate date_col, assume time_col contains full datetime.
+            # Parse it preferring DD-MM-YYYY.
+            parsed_dt = pd.to_datetime(data[time_col], dayfirst=True, infer_datetime_format=True, errors='coerce')
+            data[time_col] = parsed_dt.dt.strftime('%d-%m-%Y %H:%M:%S').fillna("Invalid Time")
     except Exception as e:
         print(f"Error parsing time column '{time_col}' (and optional date column '{date_col}'): {e}")
     return data
@@ -618,8 +637,7 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     Calculate the distance between two points on Earth using the Haversine formula.
     Returns distance in kilometers.
     """
-    R = 6371  # Radius of Earth in kilometers
-
+    R = 6371 # Radius of Earth in kilometers
     lat1_rad = math.radians(lat1)
     lon1_rad = math.radians(lon1)
     lat2_rad = math.radians(lat2)
@@ -634,123 +652,141 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     distance = R * c
     return distance
 
-
 @app.route('/')
 def index():
-    """Serves the main HTML page."""
     return render_template_string(HTML_TEMPLATE)
-
-from werkzeug.exceptions import RequestEntityTooLarge
-
-@app.errorhandler(RequestEntityTooLarge)
-def handle_file_too_large(e):
-    return jsonify({'error': 'File is too large. Maximum allowed size is 50 MB.'}), 413
 
 @app.route('/upload_data', methods=['POST'])
 def upload_data():
-    """Handles file upload and initial data processing."""
     global global_data, global_columns
-
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
-    
     file = request.files['file']
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
 
-    if file:
-        try:
-            # Determine file type from extension
-            file_extension = os.path.splitext(file.filename)[1].lower()
-            if file_extension == '.csv':
-                data = pd.read_csv(file, encoding="utf-8")
-            elif file_extension in ['.xls', '.xlsx']:
-                data = pd.read_excel(file, engine="openpyxl")
-            else:
-                return jsonify({'error': 'Unsupported file type. Please upload a CSV or Excel file.'}), 400
+    try:
+        # Determine file type and read accordingly
+        if file.filename.endswith('.csv'):
+            data = pd.read_csv(file)
+        elif file.filename.endswith(('.xls', '.xlsx')):
+            data = pd.read_excel(file)
+        else:
+            return jsonify({'error': 'Unsupported file type. Please upload a CSV or Excel file.'}), 400
+        
+        # Convert all column names to string type
+        data.columns = data.columns.astype(str)
 
-            # Dynamically detect columns and store globally
-            global_columns['punch_lat_col'] = find_column(data, ["punch in lat", "latitude", "lat"])
-            global_columns['punch_lon_col'] = find_column(data, ["punch in long", "longitude", "lon"])
-            global_columns['visit_lat_col'] = find_column(data, ["visit lat", "latitude", "lat"])
-            global_columns['visit_lon_col'] = find_column(data, ["visit long", "longitude", "lon"])
-            global_columns['punch_in_time_col'] = find_column(data, ["punch in time", "time", "punch_time"])
-            global_columns['visit_time_col'] = find_column(data, ["visit time", "time of visit", "visit_time"])
-            global_columns['punch_in_date_col'] = find_column(data, ["punch in date", "date", "punch_date"])
-            global_columns['visit_date_col'] = find_column(data, ["visit date", "date", "visit_date"])
-            global_columns['name_col'] = find_column(data, ["employee name", "name"])
-            global_columns['outlet_name_col'] = find_column(data, ["outlet name"])
-            global_columns['outlet_id_col'] = find_column(data, ["outlet id"])
+        # Detect and store globally
+        global_columns['punch_lat_col'] = find_column(data, ["punch in lat", "latitude", "lat"])
+        global_columns['punch_lon_col'] = find_column(data, ["punch in long", "longitude", "lon"])
+        global_columns['visit_lat_col'] = find_column(data, ["visit lat", "latitude", "lat"])
+        global_columns['visit_lon_col'] = find_column(data, ["visit long", "longitude", "lon"])
+        global_columns['punch_in_time_col'] = find_column(data, ["punch in time", "time", "punch_time"])
+        global_columns['visit_time_col'] = find_column(data, ["visit time", "time of visit", "visit_time"])
+        global_columns['punch_in_date_col'] = find_column(data, ["punch in date", "date", "punch_date"])
+        global_columns['visit_date_col'] = find_column(data, ["visit date", "date", "visit_date"])
+        global_columns['name_col'] = find_column(data, ["employee name", "name"])
+        global_columns['outlet_name_col'] = find_column(data, ["outlet name"])
+        global_columns['outlet_id_col'] = find_column(data, ["outlet id"])
 
-            # Check if all mandatory columns are found
-            mandatory_cols_keys = [
-                'punch_lat_col', 'punch_lon_col', 'visit_lat_col', 'visit_lon_col',
-                'punch_in_time_col', 'name_col', 'outlet_name_col', 'outlet_id_col'
-            ]
-            missing_cols = [k for k in mandatory_cols_keys if global_columns.get(k) is None]
-            if missing_cols:
-                return jsonify({'error': f"Missing required columns: {', '.join(missing_cols)}. Please check your file headers. Detected: {data.columns.tolist()}"}), 400
+        # Check if all mandatory columns are found
+        mandatory_cols_keys = [
+            'punch_lat_col', 'punch_lon_col', 'visit_lat_col', 'visit_lon_col', 
+            'punch_in_time_col', 'name_col', 'outlet_name_col', 'outlet_id_col'
+        ]
+        missing_cols = [k for k in mandatory_cols_keys if global_columns.get(k) is None]
+        
+        if missing_cols:
+            return jsonify({'error': f"Missing required columns: {', '.join(missing_cols)}. Please check your file headers. Detected: {data.columns.tolist()}"}), 400
 
-            # Parse time columns
-            # Ensure the column exists before attempting to parse
-            if global_columns['punch_in_time_col'] in data.columns:
-                data = parse_datetime_columns(data, global_columns['punch_in_time_col'], global_columns['punch_in_date_col'])
-            else:
-                data[global_columns['punch_in_time_col']] = "Column Not Found" # Fallback if column not in data
+        # Parse time columns
+        # Ensure the column exists before attempting to parse
+        if global_columns['punch_in_time_col'] in data.columns:
+            data = parse_datetime_columns(data, global_columns['punch_in_time_col'], global_columns['punch_in_date_col'])
+        else:
+            data[global_columns['punch_in_time_col']] = "Column Not Found" # Fallback if column not in data
 
-            if global_columns['visit_time_col'] and global_columns['visit_time_col'] in data.columns:
-                data = parse_datetime_columns(data, global_columns['visit_time_col'], global_columns['visit_date_col'])
-            else:
-                data['Visit Time Display'] = 'N/A' # Placeholder if visit time column is missing or not found
+        if global_columns['visit_time_col'] and global_columns['visit_time_col'] in data.columns:
+            data = parse_datetime_columns(data, global_columns['visit_time_col'], global_columns['visit_date_col'])
+        else:
+            # Create the column with 'N/A' if it's not found, so it's always accessible
+            data[global_columns.get('visit_time_col', 'visit_time_placeholder')] = 'N/A' 
 
-            global_data = data # Store processed data globally
 
-            employees = data[global_columns['name_col']].unique().tolist()
-            return jsonify({'message': 'File uploaded and processed successfully!', 'employees': employees}), 200
+        global_data = data # Store processed data globally
 
-        except Exception as e:
-            return jsonify({'error': f"Error processing file: {e}"}), 500
-    return jsonify({'error': 'Something went wrong'}), 500
+        employees = data[global_columns['name_col']].unique().tolist()
+        return jsonify({'message': 'File processed successfully!', 'employees': employees}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/get_unique_dates', methods=['GET'])
+def get_unique_dates():
+    global global_data, global_columns
+    if global_data is None:
+        return jsonify({'error': 'No data uploaded yet. Please upload a file first.'}), 400
+
+    punch_in_time_col_name = global_columns.get('punch_in_time_col')
+    if not punch_in_time_col_name or punch_in_time_col_name not in global_data.columns:
+        return jsonify({'error': 'Punch In Time column not found in the uploaded data.'}), 400
+
+    try:
+        # Convert to datetime using the expected DD-MM-YYYY HH:MM:SS format
+        # This is crucial for correct parsing before extracting date
+        unique_dates = pd.to_datetime(global_data[punch_in_time_col_name], format='%d-%m-%Y %H:%M:%S', errors='coerce').dt.date.dropna().unique()
+        
+        # Sort dates
+        sorted_dates = sorted(unique_dates)
+
+        # Format for dropdown (value as YYYY-MM-DD for backend, text as DD-MM-YYYY for display)
+        formatted_dates = [{'value': date.strftime('%Y-%m-%d'), 'text': date.strftime('%d-%m-%Y')} for date in sorted_dates]
+        
+        return jsonify(formatted_dates), 200
+    except Exception as e:
+        return jsonify({'error': f"Error processing dates: {str(e)}"}), 500
 
 
 def generate_map_html(start_date_str, end_date_str, employee_name):
-    """Generates the Folium map HTML based on filters.
-    This function is now reusable by both /get_map and /download_map_html.
-    """
     global global_data, global_columns
-
     if global_data is None:
-        return None, 'No data loaded. Please upload a file first.'
+        return None, "No data uploaded. Please upload a file first."
 
     filtered_data = global_data.copy()
 
-    # Filter by date range
-    if start_date_str or end_date_str:
+    # Convert filter dates to datetime objects for comparison
+    start_date_filter_dt = None
+    end_date_filter_dt = None
+    
+    # Try parsing dates if they are provided from YYYY-MM-DD (from JS dropdown value)
+    if start_date_str:
         try:
-            punch_in_time_col_name = global_columns.get('punch_in_time_col')
-            if punch_in_time_col_name and punch_in_time_col_name in filtered_data.columns:
-                temp_datetime_series = pd.to_datetime(
-                    filtered_data[punch_in_time_col_name], 
-                    format='%d-%m-%Y %H:%M:%S', 
-                    errors='coerce'
-                )
-                filtered_data['FullDateTime'] = temp_datetime_series
-                
-                filtered_data = filtered_data.dropna(subset=['FullDateTime'])
+            start_date_filter_dt = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return None, "Invalid Start Date format. Please use YYYY-MM-DD."
+    if end_date_str:
+        try:
+            end_date_filter_dt = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return None, "Invalid End Date format. Please use YYYY-MM-DD."
 
-                if start_date_str:
-                    start_dt = datetime.strptime(start_date_str, '%Y-%m-%d')
-                    filtered_data = filtered_data[filtered_data['FullDateTime'] >= start_dt]
-                
-                if end_date_str:
-                    end_dt = datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
-                    filtered_data = filtered_data[filtered_data['FullDateTime'] <= end_dt]
-                
-                filtered_data = filtered_data.drop(columns=['FullDateTime'])
-            else:
-                return None, 'Punch In Time column not found for date filtering.'
-        except Exception as e:
-            return None, f"Error filtering by date range: {e}"
+    # Filter by date range
+    punch_in_time_col_name = global_columns.get('punch_in_time_col')
+    if not punch_in_time_col_name or punch_in_time_col_name not in filtered_data.columns:
+        return None, 'Punch In Time column not found for date filtering.'
+
+    try:
+        # Ensure the column is datetime objects for filtering, explicitly parsing DD-MM-YYYY HH:MM:SS
+        filtered_data['ParsedPunchInTime'] = pd.to_datetime(filtered_data[punch_in_time_col_name], format='%d-%m-%Y %H:%M:%S', errors='coerce')
+        filtered_data = filtered_data.dropna(subset=['ParsedPunchInTime']) # Drop rows where date parsing failed
+        
+        if start_date_filter_dt:
+            filtered_data = filtered_data[filtered_data['ParsedPunchInTime'].dt.date >= start_date_filter_dt]
+        if end_date_filter_dt:
+            filtered_data = filtered_data[filtered_data['ParsedPunchInTime'].dt.date <= end_date_filter_dt]
+    except Exception as e:
+        return None, f"Error filtering by date range: {e}"
 
     # Filter by employee
     if employee_name:
@@ -772,10 +808,10 @@ def generate_map_html(start_date_str, end_date_str, employee_name):
     # Center the map around the filtered data
     avg_lat = filtered_data[global_columns['punch_lat_col']].mean() if not filtered_data.empty else 20.5937
     avg_lon = filtered_data[global_columns['punch_lon_col']].mean() if not filtered_data.empty else 78.9629
-    
+
     fmap = folium.Map(
-        location=[avg_lat, avg_lon], 
-        zoom_start=5, 
+        location=[avg_lat, avg_lon],
+        zoom_start=5,
         tiles='CartoDB positron'
     )
 
@@ -785,7 +821,6 @@ def generate_map_html(start_date_str, end_date_str, employee_name):
 
     Fullscreen().add_to(fmap)
     MiniMap().add_to(fmap)
-
     marker_cluster = MarkerCluster(name="Locations").add_to(fmap)
 
     color_palette = [
@@ -793,15 +828,15 @@ def generate_map_html(start_date_str, end_date_str, employee_name):
         "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
         "#aec7e8", "#ffbb78", "#98df8a", "#ff9896", "#c5b0d5"
     ]
-    
     employees = filtered_data[global_columns['name_col']].unique()
     employee_colors = {emp: color_palette[i % len(color_palette)] for i, emp in enumerate(employees)}
-
     employee_total_distances = {} # Dictionary to store total distance for each employee
+
+    # To keep track of added markers to avoid duplicates
+    added_markers = set()
 
     for emp in employees:
         employee_route_group = FeatureGroup(name=f"Routes: {emp}")
-        
         emp_data = filtered_data[filtered_data[global_columns['name_col']] == emp].copy()
         color = employee_colors[emp]
 
@@ -811,162 +846,150 @@ def generate_map_html(start_date_str, end_date_str, employee_name):
         else:
             emp_data['PunchInDateTime'] = pd.NaT # Not a Time
 
-        if global_columns['visit_time_col'] in emp_data.columns:
-            emp_data['VisitDateTime'] = pd.to_datetime(emp_data[global_columns['visit_time_col']], format='%d-%m-%Y %H:%M:%S', errors='coerce')
-        else:
-            emp_data['VisitDateTime'] = pd.NaT # Not a Time
+        emp_data = emp_data.sort_values(by='PunchInDateTime').reset_index(drop=True)
 
-        # Sort data by punch-in time to ensure chronological order for routes
-        emp_data = emp_data.sort_values(by='PunchInDateTime').dropna(subset=['PunchInDateTime'])
-
-        total_distance_for_employee = 0
-        
-        # Store unique markers to avoid duplicates on the map (even with clustering)
-        # This will be a set of tuples: (lat, lon, date, type, outlet_name)
-        added_markers = set() 
-
-        previous_visit_lat = None
-        previous_visit_lon = None
-        previous_date = None # To track same-day visits
+        current_employee_distance = 0
+        prev_punch_lat, prev_punch_lon = None, None
 
         for idx, row in emp_data.iterrows():
             current_punch_lat = row[global_columns['punch_lat_col']]
             current_punch_lon = row[global_columns['punch_lon_col']]
             current_visit_lat = row[global_columns['visit_lat_col']]
             current_visit_lon = row[global_columns['visit_lon_col']]
-            current_date = row['PunchInDateTime'].date() # Get date part for same-day check
-            current_visit_time_display = row.get(global_columns.get('visit_time_col', 'Visit Time Display'), 'N/A')
-            outlet_name_display = row.get(global_columns.get('outlet_name_col', 'FallbackKey'), 'N/A')
-            outlet_id_display = row.get(global_columns.get('outlet_id_col', 'FallbackKey'), 'N/A')
+            current_punch_in_time_display = row[global_columns['punch_in_time_col']]
+            
+            # Safely get visit time display
+            current_visit_time_display = row.get(global_columns.get('visit_time_col', 'visit_time_placeholder'), 'N/A')
+
+            current_outlet_name = row[global_columns['outlet_name_col']] if global_columns['outlet_name_col'] else 'N/A'
+            current_outlet_id = row[global_columns['outlet_id_col']] if global_columns['outlet_id_col'] else 'N/A'
+            
+            current_date = pd.to_datetime(current_punch_in_time_display, format='%d-%m-%Y %H:%M:%S', errors='coerce').strftime('%Y-%m-%d') if pd.notna(pd.to_datetime(current_punch_in_time_display, format='%d-%m-%Y %H:%M:%S', errors='coerce')) else 'N/A'
+
+            # Format punch in time for display - EXPLICITLY specify format
+            try:
+                punch_in_dt = pd.to_datetime(current_punch_in_time_display, format='%d-%m-%Y %H:%M:%S', errors='coerce')
+                punch_in_time_display_fmt = punch_in_dt.strftime('%d-%m-%Y %H:%M:%S') if not pd.isnull(punch_in_dt) else current_punch_in_time_display
+            except Exception:
+                punch_in_time_display_fmt = current_punch_in_time_display
+
+            # Format visit time for display - EXPLICITLY specify format
+            try:
+                visit_in_dt = pd.to_datetime(current_visit_time_display, format='%d-%m-%Y %H:%M:%S', errors='coerce')
+                visit_time_display_fmt = visit_in_dt.strftime('%d-%m-%Y %H:%M:%S') if not pd.isnull(visit_in_dt) else current_visit_time_display
+            except Exception:
+                visit_time_display_fmt = current_visit_time_display
+
+            punch_lat_display = f"{current_punch_lat:.4f}" if pd.notna(current_punch_lat) else 'N/A'
+            punch_lon_display = f"{current_punch_lon:.4f}" if pd.notna(current_punch_lon) else 'N/A'
+            visit_lat_display = f"{current_visit_lat:.4f}" if pd.notna(current_visit_lat) else 'N/A'
+            visit_lon_display = f"{current_visit_lon:.4f}" if pd.notna(current_visit_lon) else 'N/A'
+            outlet_name_display = current_outlet_name if pd.notna(current_outlet_name) else 'N/A'
+            outlet_id_display = current_outlet_id if pd.notna(current_outlet_id) else 'N/A'
+
 
             # Add Punch In Marker (only if unique for the day at this location)
             punch_marker_key = (current_punch_lat, current_punch_lon, current_date, 'punch')
             if punch_marker_key not in added_markers:
-                punch_in_time_display = row.get(global_columns.get('punch_in_time_col', 'FallbackKey'), 'Column Not Found')
-                punch_lat_display = f"{current_punch_lat:.4f}" if pd.notna(current_punch_lat) else 'N/A'
-                punch_lon_display = f"{current_punch_lon:.4f}" if pd.notna(current_punch_lon) else 'N/A'
-                
                 folium.Marker(
                     location=[current_punch_lat, current_punch_lon],
                     popup=f"""
                     <strong>Employee:</strong> {emp}<br>
-                    <strong>Punch In Time:</strong> ⏰ {punch_in_time_display}<br>
+                    <strong>Punch In Time:</strong> ⏰ {punch_in_time_display_fmt}<br>
                     <strong>Latitude:</strong> {punch_lat_display}<br>
                     <strong>Longitude:</strong> {punch_lon_display}
                     """,
-                    tooltip=f"Name: {emp} | Punch In: {punch_in_time_display}",
-                    icon=folium.Icon(color="blue", icon="user-clock", prefix='fa', icon_size=(30, 30)) # Changed to clock icon, blue color, size 30x30
+                    tooltip=f"Name: {emp} | Punch In: {punch_in_time_display_fmt}",
+                    icon=folium.Icon(color="blue", icon="user-clock", prefix='fa', icon_size=(30, 30))
                 ).add_to(marker_cluster)
                 added_markers.add(punch_marker_key)
 
             # Add Visit Marker (only if unique for the day at this location/outlet)
             visit_marker_key = (current_visit_lat, current_visit_lon, current_date, outlet_name_display, 'visit')
             if visit_marker_key not in added_markers:
-                visit_lat_display = f"{current_visit_lat:.4f}" if pd.notna(current_visit_lat) else 'N/A'
-                visit_lon_display = f"{current_visit_lon:.4f}" if pd.notna(current_visit_lon) else 'N/A'
-
                 folium.Marker(
                     location=[current_visit_lat, current_visit_lon],
                     popup=f"""
                     <strong>Employee:</strong> {emp}<br>
-                    <strong>Visit Time:</strong> ⏰ {current_visit_time_display}<br>
-                    <strong>Outlet Name:</strong> 🏢 {outlet_name_display}<br>
-                    <strong>Outlet ID:</strong> # {outlet_id_display}<br>
+                    <strong>Outlet:</strong> {outlet_name_display} (ID: {outlet_id_display})<br>
+                    <strong>Visit Time:</strong> ⏱️ {visit_time_display_fmt}<br>
                     <strong>Latitude:</strong> {visit_lat_display}<br>
                     <strong>Longitude:</strong> {visit_lon_display}
                     """,
-                    tooltip=f"Name: {emp} | Visit: {current_visit_time_display} | Outlet: {outlet_name_display}",
-                    icon=folium.Icon(color="green", icon="building", prefix='fa', icon_size=(40, 40))  # Green color, building icon, size 40x40
+                    tooltip=f"Outlet: {outlet_name_display} | Visit: {visit_time_display_fmt}",
+                    icon=folium.Icon(color="green", icon="briefcase", prefix='fa', icon_size=(30, 30))
                 ).add_to(marker_cluster)
                 added_markers.add(visit_marker_key)
 
-            # Calculate distance between consecutive visits on the same day
-            segment_distance_visit_to_visit = 0
-            if previous_visit_lat is not None and previous_visit_lon is not None and previous_date == current_date:
-                if pd.notna(previous_visit_lat) and pd.notna(previous_visit_lon) and \
-                   pd.notna(current_visit_lat) and pd.notna(current_visit_lon):
-                    segment_distance_visit_to_visit = haversine_distance(previous_visit_lat, previous_visit_lon, current_visit_lat, current_visit_lon)
-                    total_distance_for_employee += segment_distance_visit_to_visit
+
+            # Draw line between consecutive punch-in locations for the same employee
+            if prev_punch_lat is not None and pd.notna(current_punch_lat) and pd.notna(current_punch_lon):
+                folium.PolyLine(
+                    locations=[(prev_punch_lat, prev_punch_lon), (current_punch_lat, current_punch_lon)],
+                    color=color,
+                    weight=4,
+                    opacity=0.7
+                ).add_to(employee_route_group)
                 
-            # Calculate distance from current punch-in to current visit
-            punch_to_visit_distance = 0
-            if pd.notna(current_punch_lat) and pd.notna(current_punch_lon) and \
-               pd.notna(current_visit_lat) and pd.notna(current_visit_lon):
-                punch_to_visit_distance = haversine_distance(current_punch_lat, current_punch_lon, current_visit_lat, current_visit_lon)
-                total_distance_for_employee += punch_to_visit_distance
+                # Calculate and add distance to the total for the employee
+                dist = haversine_distance(prev_punch_lat, prev_punch_lon, current_punch_lat, current_punch_lon)
+                current_employee_distance += dist
 
-
-            # Add PolyLine for the current route segment (Punch In to Visit)
-            polyline_popup = f"<strong>Route for {row[global_columns['name_col']]}</strong><br>"
-            polyline_tooltip = f"Name: {row[global_columns['name_col']]}"
-            
-            if punch_to_visit_distance > 0:
-                polyline_popup += f"<strong>Punch-in to Visit:</strong> {punch_to_visit_distance:.2f} km<br>"
-                polyline_tooltip += f" | P-V: {punch_to_visit_distance:.2f} km"
-
-            if segment_distance_visit_to_visit > 0:
-                polyline_popup += f"<strong>Prev. Visit to Current Visit:</strong> {segment_distance_visit_to_visit:.2f} km"
-                polyline_tooltip += f" | V-V: {segment_distance_visit_to_visit:.2f} km"
-
-            folium.PolyLine(
-                locations=[
-                    [current_punch_lat, current_punch_lon],
-                    [current_visit_lat, current_visit_lon]
-                ],
-                color=color,
-                weight=4, 
-                dash_array=None,
-                popup=polyline_popup,
-                tooltip=polyline_tooltip
-            ).add_to(employee_route_group)
-            
-            # Update previous visit location for the next iteration
-            previous_visit_lat = current_visit_lat
-            previous_visit_lon = current_visit_lon
-            previous_date = current_date
+            prev_punch_lat = current_punch_lat
+            prev_punch_lon = current_punch_lon
         
-        employee_route_group.add_to(fmap)
-        employee_total_distances[emp] = total_distance_for_employee # Store total distance
+        employee_route_group.add_to(fmap) # Add each employee's route group to the map
+        employee_total_distances[emp] = current_employee_distance
 
+    # Add LayerControl to toggle employee routes
     folium.LayerControl().add_to(fmap)
 
-    # Custom Marker Type Legend
+    # Custom Marker Type Legend HTML
     marker_type_legend_html = """
     <div class="marker-legend">
         <h4 style="margin-top:0; margin-bottom:12px; font-weight:bold; color:#333;">Marker Types (Clustered)</h4>
         <div class="marker-legend-item">
-            <div class="marker-legend-icon"><i class="fa fa-clock" style="color: darkblue; font-size: 16px;"></i></div> 
+            <div class="marker-legend-icon"><i class="fa fa-user-clock" style="color: blue;"></i></div>
             <span>Punch In Location</span>
         </div>
         <div class="marker-legend-item">
-            <div class="marker-legend-icon"><i class="fa fa-briefcase" style="color: #2ca02c; font-size: 24px;"></i></div> 
+            <div class="marker-legend-icon"><i class="fa fa-briefcase" style="color: green;"></i></div>
             <span>Visit Location</span>
         </div>
     </div>
     """
     fmap.get_root().html.add_child(folium.Element(marker_type_legend_html))
 
+    # Employee Color and Distance Legend HTML
+    employee_legend_items_html = ""
+    for emp, color in employee_colors.items():
+        distance = employee_total_distances.get(emp, 0)
+        employee_legend_items_html += f"""
+        <div class="employee-legend-item">
+            <div class="employee-legend-color-box" style="background-color:{color};"></div>
+            <span>{emp} (Dist: {distance:.2f} km)</span>
+        </div>
+        """
+    employee_color_legend_html = f"""
+    <div class="employee-legend">
+        <h4 style="margin-top:0; margin-bottom:12px; font-weight:bold; color:#333;">Employee Routes & Distance</h4>
+        {employee_legend_items_html}
+    </div>
+    """
+    fmap.get_root().html.add_child(folium.Element(employee_color_legend_html))
+
     # Add the signature to the map
     signature_html = """
-    <div style="position: fixed; 
-                bottom: 10px; left: 10px; 
-                background-color: rgba(255, 255, 255, 0.8); 
-                padding: 5px 10px; 
-                border-radius: 5px; 
-                font-size: 12px; 
-                font-family: Arial, sans-serif; 
-                z-index: 1000;">
-        &copy; 2025 - Sugandh Kuamr Mishra
+    <div style="position: fixed; bottom: 10px; right: 10px; z-index: 9999; font-size: 14px; color: #666; background-color: rgba(255,255,255,0.7); padding: 5px 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+        Map generated by Sugandh Mishra
     </div>
     """
     fmap.get_root().html.add_child(folium.Element(signature_html))
 
-    return fmap._repr_html_(), None  # Return the map HTML and no error
-
+    return fmap._repr_html_(), None # Return HTML and no error
 
 @app.route('/get_map', methods=['POST'])
 def get_map():
-    """Generates and returns the Folium map HTML based on filters."""
     req_data = request.get_json()
     selected_start_date_str = req_data.get('start_date')
     selected_end_date_str = req_data.get('end_date')
@@ -976,11 +999,11 @@ def get_map():
 
     if error_message:
         return jsonify({'error': error_message}), 500
+    
     if map_html:
         return jsonify({'map_html': map_html}), 200
     else:
-        return jsonify({'message': 'No map data received.'}), 200
-
+        return jsonify({'message': 'No map could be generated with the current filters. Try adjusting them.'}), 200
 
 @app.route('/download_map_html', methods=['POST'])
 def download_map_html():
@@ -1015,11 +1038,4 @@ def download_map_html():
 if __name__ == '__main__':
     # Create a 'static' directory if it doesn't exist
     os.makedirs('static', exist_ok=True) # Use exist_ok=True to prevent error if it exists
-    
-    # Removed the Pillow-based logo creation code as requested.
-    # Please ensure you have a 'Mylo_Logo.png' file in the 'static' directory
-    # for the application to display the logo correctly.
-
-    
-if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
